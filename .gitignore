@@ -109,6 +109,7 @@ venv.bak/
 # Reference: https://intellij-support.jetbrains.com/hc/en-us/articles/206544839
 
 # User-specific stuff
+.idea/
 .idea/**/workspace.xml
 .idea/**/tasks.xml
 .idea/**/dictionaries
@@ -157,15 +158,3 @@ fabric.properties
 
 # Editor-based Rest Client
 .idea/httpRequests
-### Example user template template
-### Example user template
-
-# IntelliJ project files
-.idea
-*.iml
-out
-gen
-.idea/
-data.xlsx
-main.py
-model/
