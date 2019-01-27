@@ -2,11 +2,10 @@ from model.Item import Item
 
 
 class Floor(Item):
-    heuristic = float("inf")
-    owner = None
 
     def __init__(self):
-        pass
+        Item.__init__(self)
+        self.heuristic = float("inf")
 
     def set_heuristic(self, heuristic):
         if self.heuristic > heuristic:

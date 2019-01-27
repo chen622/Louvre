@@ -2,11 +2,11 @@ from model.Item import Item
 
 
 class Exit(Item):
-    heuristic = 0
-    safeHumans = []
 
     def __init__(self):
-        pass
+        Item.__init__(self)
+        self.heuristic = 0
+        self.safe_humans = []
 
     def out(self, human):
-        self.safeHumans.append(human)
+        self.safe_humans.append(human)

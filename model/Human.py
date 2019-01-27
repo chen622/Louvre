@@ -1,9 +1,10 @@
 class Human:
-    time = 0
-    isSafe = False
 
     def __init__(self):
-        pass
+        self.time = 0
+        self.path = []
+        self.is_safe = False
 
-    def touch(self):
+    def touch(self, path):
         self.time += 1
+        self.path.append(path)

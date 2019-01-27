@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 import xlrd
 import numpy
 
@@ -11,30 +13,123 @@ import datetime
 import random
 
 FLOORS = 5
-ROWS = 58 * 5
-COLUMNS = 136 * 5
-AMOUNT_OF_ANT = 5000
+ROWS = 58 * 1
+COLUMNS = 136 * 1
+AMOUNT_OF_ANT = 2
+
+start_time = 0
+
 exit_floor = []
 connect_floor = []
 exits = []  # The position of exit
 stairs = []  # The position of stair
+available = []  # The position of block which can stand
+location_pool = []  # Copy of available to help iterate
 louvre_map = numpy.empty([FLOORS, ROWS, COLUMNS], dtype=Item)
 humans = numpy.empty(AMOUNT_OF_ANT, dtype=Human)
 
 
 def automaton():
+    global start_time
+    start_time = datetime.datetime.now()
     locate_humans()
+    print('Locate finish use %d microseconds' % (datetime.datetime.now() - start_time).microseconds)
+    start_time = datetime.datetime.now()
+    time = 0
+    while not is_safe():
+        print("iterate %d" % time)
+        time += 1
+        for human in humans:
+            if human.is_safe:
+                continue
+            f, x, y = human.path[-1]
+            print('position: %d, %d, %d' % (f, x, y))
+            if isinstance(louvre_map[f][x][y], Floor):
+                neighbors = check_neighbor(f, x, y)
+                if len(neighbors) == 0:
+                    continue
+                x_max, y_max = neighbors[0][0], neighbors[0][1]
+                for (x_neighbor, y_neighbor) in neighbors[1:]:
+                    if louvre_map[f][x_max][y_max].get_probability() < louvre_map[f][x_neighbor][
+                        y_neighbor].get_probability():
+                        x_max, y_max = x_neighbor, y_neighbor
+                print('max: %d, %d' % (x_max, y_max))
+                louvre_map[f][x_max][y_max].owner = human
+                louvre_map[f][x][y].owner = None
+                human.touch((f, x_max, y_max))
+            elif isinstance(louvre_map[f][x][y], Stair):
+                if louvre_map[f][x][y].toward == louvre_map[f][x][y].h_toward:
+                    if louvre_map[f][x][y].touch():
+                        if louvre_map[f][x][y].toward == 0 and louvre_map[f - 1][x][y].owner is None:
+                            louvre_map[f - 1][x][y].owner = human
+                            louvre_map[f][x][y].owner = None
+                            louvre_map[f][x][y].current = louvre_map[f][x][y].WAIT_TIME
+                            human.touch((f - 1, x, y))
+                        elif louvre_map[f][x][y].toward == 1 and louvre_map[f + 1][x][y].owner is None:
+                            louvre_map[f + 1][x][y].owner = human
+                            louvre_map[f][x][y].owner = None
+                            louvre_map[f][x][y].current = louvre_map[f][x][y].WAIT_TIME
+                            human.touch((f + 1, x, y))
+                else:
+                    neighbors = check_neighbor(f, x, y)
+                    if len(neighbors) == 0:
+                        continue
+                    x_max, y_max = neighbors[0][0], neighbors[0][1]
+                    for (x_neighbor, y_neighbor) in neighbors[1:]:
+                        if louvre_map[f][x_max][y_max].get_probability() < louvre_map[f][x_neighbor][
+                            y_neighbor].get_probability():
+                            x_max, y_max = x_neighbor, y_neighbor
+                    # print('max: %d, %d' % (x_max, y_max))
+                    louvre_map[f][x_max][y_max].owner = human
+                    louvre_map[f][x][y].owner = None
+                    human.touch((f, x_max, y_max))
+            elif isinstance(louvre_map[f][x][y], Exit):
+                print('\033[0;37;42m out\033[0m')
+                exit_human = human
+                exit_human.is_safe = True
+                louvre_map[f][x][y].owner = None
+    print('Evacuation finish use %d seconds' % (datetime.datetime.now() - start_time).seconds)
+    start_time = datetime.datetime.now()
+
+
+def is_safe():
+    for human in humans:
+        if not human.is_safe: return False
+    return True
+
+
+def check_neighbor(f, x, y):
+    neighbors = []
+    for (x2, y2) in [(x + 1, y), (x, y + 1), (x - 1, y), (x, y - 1), (x + 1, y + 1), (x + 1, y - 1), (x - 1, y + 1),
+                     (x - 1, y - 1), ]:
+        if x2 < ROWS and y2 < COLUMNS and not isinstance(louvre_map[f][x2][y2], Blank) and louvre_map[f][x2][
+            y2].owner is None:
+            if len(louvre_map[f][x][y].owner.path) >= 2 and (f, x2, y2) == louvre_map[f][x][y].owner.path[-2]:
+                continue
+            else:
+                neighbors.append((x2, y2))
+    return neighbors
 
 
 def locate_humans():
+    global location_pool
+    location_pool = available.copy()
     for i in range(AMOUNT_OF_ANT):
         human = Human()
         humans[i] = human
+        f, x, y = get_available_position(i)
+        human.path.append((f, x, y))
+        louvre_map[f][x][y].owner = human
+        if i % 1000 == 0: print('Locating %d of %d' % (i, AMOUNT_OF_ANT))
 
 
 def get_available_position(seed):
     random.seed(seed + datetime.datetime.now().second)
-    floor,x,y =random.randint(0,4),random.randint(0,ROWS),random.randint(0,COLUMNS)
+    temp = random.randint(0, len(location_pool) - 1)
+    position = location_pool[temp]
+    del location_pool[temp]
+    return position
+
 
 def read_data():
     excel = xlrd.open_workbook(r'./data2.xlsx')
@@ -42,19 +137,23 @@ def read_data():
         sheet = excel.sheet_by_index(f)
         for i in range(ROWS):
             for j in range(COLUMNS):
-                value = int(sheet.cell(int(i / 5), int(j / 5)).value)
-                if value == 1:
+                value = int(sheet.cell(int(i / 1), int(j / 1)).value)
+                if value == 1:  # Floor
                     louvre_map[f][i][j] = Floor()
-                elif value == 3:
-                    stairs[f].append((i, j))
+                    available.append((f, i, j))
+                elif value == 3:  # Up to down stair
                     louvre_map[f][i][j] = Stair(0)
-                elif value == 4:
-                    exit_floor.append(f)
-                    exits[f].append((i, j))
-                    louvre_map[f][i][j] = Exit()
-                elif value == 2:
                     stairs[f].append((i, j))
+                    available.append((f, i, j))
+                elif value == 4:  # Exit
+                    louvre_map[f][i][j] = Exit()
+                    exits[f].append((i, j))
+                    exit_floor.append(f)
+                    available.append((f, i, j))
+                elif value == 2:  # Down to up stair
                     louvre_map[f][i][j] = Stair(1)
+                    stairs[f].append((i, j))
+                    available.append((f, i, j))
                 else:
                     louvre_map[f][i][j] = Blank()
 
@@ -143,4 +242,5 @@ if __name__ == '__main__':
     start_time = datetime.datetime.now()
     count_heuristic()
     print('Calculate finish use %d seconds' % (datetime.datetime.now() - start_time).seconds)
+    automaton()
     print('All finish use %d seconds' % (datetime.datetime.now() - all_start_time).seconds)
