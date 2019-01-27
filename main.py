@@ -21,14 +21,15 @@ start_time = 0
 
 exit_floor = []
 connect_floor = []
-exits = []  # The position of exit
-stairs = []  # The position of stair
-available = []  # The position of block which can stand
-location_pool = []  # Copy of available to help iterate
-louvre_map = numpy.empty([FLOORS, ROWS, COLUMNS], dtype=Item)
-humans = numpy.empty(AMOUNT_OF_ANT, dtype=Human)
+exits = []  # The position of exit. e.g. [0:[(1,2)],1:[],2:[],3:[],4:[]]
+stairs = []  # The position of stair. e.g. [0:[(1,2)],1:[],2:[],3:[],4:[]]
+available = []  # The position of block which can stand. e.g. [(1,2,3),(1,3,4)]
+location_pool = []  # Copy of available to help iterate. e.g. [(1,2,3),(1,3,4)]
+louvre_map = numpy.empty([FLOORS, ROWS, COLUMNS], dtype=Item)  # e.g. [0:[0:[],1:[]],1:[0:[],1:[]]]
+humans = numpy.empty(AMOUNT_OF_ANT, dtype=Human)  # e.g. [human1,human2]
 
 
+# Use to simulate automaton.
 def automaton():
     global start_time
     start_time = datetime.datetime.now()
@@ -39,12 +40,12 @@ def automaton():
     while not is_safe():
         print("iterate %d" % time)
         time += 1
-        for human in humans:
+        for human in humans:  # traversal all the visitor
             if human.is_safe:
                 continue
             f, x, y = human.path[-1]
             print('position: %d, %d, %d' % (f, x, y))
-            if isinstance(louvre_map[f][x][y], Floor):
+            if isinstance(louvre_map[f][x][y], Floor):  # visitor is on a Floor block
                 neighbors = check_neighbor(f, x, y)
                 if len(neighbors) == 0:
                     continue
@@ -57,20 +58,20 @@ def automaton():
                 louvre_map[f][x_max][y_max].owner = human
                 louvre_map[f][x][y].owner = None
                 human.touch((f, x_max, y_max))
-            elif isinstance(louvre_map[f][x][y], Stair):
-                if louvre_map[f][x][y].toward == louvre_map[f][x][y].h_toward:
-                    if louvre_map[f][x][y].touch():
-                        if louvre_map[f][x][y].toward == 0 and louvre_map[f - 1][x][y].owner is None:
+            elif isinstance(louvre_map[f][x][y], Stair):  # visitor is on a Stair block
+                if louvre_map[f][x][y].toward == louvre_map[f][x][y].h_toward:  # visitor should move to another floor
+                    if louvre_map[f][x][y].touch():  # visitor should wait or not
+                        if louvre_map[f][x][y].toward == 0 and louvre_map[f - 1][x][y].owner is None:  # move to up
                             louvre_map[f - 1][x][y].owner = human
                             louvre_map[f][x][y].owner = None
                             louvre_map[f][x][y].current = louvre_map[f][x][y].WAIT_TIME
                             human.touch((f - 1, x, y))
-                        elif louvre_map[f][x][y].toward == 1 and louvre_map[f + 1][x][y].owner is None:
+                        elif louvre_map[f][x][y].toward == 1 and louvre_map[f + 1][x][y].owner is None:  # move to down
                             louvre_map[f + 1][x][y].owner = human
                             louvre_map[f][x][y].owner = None
                             louvre_map[f][x][y].current = louvre_map[f][x][y].WAIT_TIME
                             human.touch((f + 1, x, y))
-                else:
+                else:  # visitor should move to another block in same floor
                     neighbors = check_neighbor(f, x, y)
                     if len(neighbors) == 0:
                         continue
@@ -83,7 +84,7 @@ def automaton():
                     louvre_map[f][x_max][y_max].owner = human
                     louvre_map[f][x][y].owner = None
                     human.touch((f, x_max, y_max))
-            elif isinstance(louvre_map[f][x][y], Exit):
+            elif isinstance(louvre_map[f][x][y], Exit):  # visitor arrive exit
                 print('\033[0;37;42m out\033[0m')
                 exit_human = human
                 exit_human.is_safe = True
@@ -92,12 +93,14 @@ def automaton():
     start_time = datetime.datetime.now()
 
 
+# Determine is all visitor safe.
 def is_safe():
     for human in humans:
         if not human.is_safe: return False
     return True
 
 
+# Get the neighbor which can reach
 def check_neighbor(f, x, y):
     neighbors = []
     for (x2, y2) in [(x + 1, y), (x, y + 1), (x - 1, y), (x, y - 1), (x + 1, y + 1), (x + 1, y - 1), (x - 1, y + 1),
@@ -111,6 +114,7 @@ def check_neighbor(f, x, y):
     return neighbors
 
 
+# Generate some human into map
 def locate_humans():
     global location_pool
     location_pool = available.copy()
@@ -123,6 +127,7 @@ def locate_humans():
         if i % 1000 == 0: print('Locating %d of %d' % (i, AMOUNT_OF_ANT))
 
 
+# Generate position to stand
 def get_available_position(seed):
     random.seed(seed + datetime.datetime.now().second)
     temp = random.randint(0, len(location_pool) - 1)
@@ -164,12 +169,16 @@ def count_heuristic():
     count_all_floor_floor()
 
 
+# Calculate the heuristic of stair in floor which has exit
 def count_exit_floor_stair():
     for f in exit_floor:
         for (x_stair, y_stair) in stairs[f]:
             for (x_exit, y_exit) in exits[f]:
+                # TODO: 添加使用迪杰斯特拉算法（或其他算法）计算两点间长度
                 louvre_map[f][x_stair][y_stair].set_heuristic(
-                    ((x_stair - x_exit) ** 2 + (y_stair - y_exit) ** 2) ** 0.5)
+                    abs(x_stair - x_exit) + abs(y_stair - y_exit))
+                # louvre_map[f][x_stair][y_stair].set_heuristic(
+                #     ((x_stair - x_exit) ** 2 + (y_stair - y_exit) ** 2) ** 0.5)
             # exits[f].append((x_stair, y_stair))
             if louvre_map[f][x_stair][y_stair].toward == 0 and louvre_map[f - 1][x_stair][y_stair].heuristic > \
                     louvre_map[f][x_stair][y_stair].heuristic + 15:
@@ -183,13 +192,18 @@ def count_exit_floor_stair():
                 exits[f + 1].append((x_stair, y_stair))
 
 
+# Calculate the heuristic of stair in floor which doesn't have exit
 def count_all_floor_stair():
     for f in connect_floor:
         for (x_stair, y_stair) in stairs[f]:
             for (x_exit, y_exit) in exits[f]:
+                # TODO: 添加使用迪杰斯特拉算法（或其他算法）计算两点间长度
                 louvre_map[f][x_stair][y_stair].set_heuristic(
-                    ((x_stair - x_exit) ** 2 + (y_stair - y_exit) ** 2) ** 0.5 + louvre_map[f][x_exit][
+                    abs(x_stair - x_exit) + abs(y_stair - y_exit) + louvre_map[f][x_exit][
                         y_exit].heuristic)
+                # louvre_map[f][x_stair][y_stair].set_heuristic(
+                #     (((x_stair - x_exit) ** 2 + (y_stair - y_exit) ** 2) ** 0.5) + louvre_map[f][x_exit][
+                #         y_exit].heuristic)
             if louvre_map[f][x_stair][y_stair].toward == 0 and louvre_map[f - 1][x_stair][y_stair].heuristic > \
                     louvre_map[f][x_stair][y_stair].heuristic + 15:
                 louvre_map[f - 1][x_stair][y_stair].is_down_to_up(louvre_map[f][x_stair][y_stair].heuristic + 15)
@@ -202,15 +216,19 @@ def count_all_floor_stair():
                 exits[f + 1].append((x_stair, y_stair))
 
 
+# Calculate the heuristic of all block
 def count_all_floor_floor():
     for f in range(FLOORS):
         for x in range(ROWS):
             for y in range(COLUMNS):
                 if isinstance(louvre_map[f][x][y], Floor):
                     for (x_exit, y_exit) in exits[f]:
+                        # TODO: 添加使用迪杰斯特拉算法（或其他算法）计算两点间长度
                         louvre_map[f][x][y].set_heuristic(
-                            ((x - x_exit) ** 2 + (y - y_exit) ** 2) ** 0.5 + louvre_map[f][x_exit][
+                            abs(x - x_exit) + abs(y - y_exit) + louvre_map[f][x_exit][
                                 y_exit].heuristic)
+                        # (((x - x_exit) ** 2 + (y - y_exit) ** 2) ** 0.5) + louvre_map[f][x_exit][
+                        #     y_exit].heuristic)
                 else:
                     continue
 
