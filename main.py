@@ -4,21 +4,37 @@ import numpy
 from model.Exit import Exit
 from model.Blank import Blank
 from model.Floor import Floor
+from model.Human import Human
 from model.Item import Item
 from model.Stair import Stair
+import datetime
+import random
 
 FLOORS = 5
-# FLOORS = 2
 ROWS = 58 * 5
-# ROWS = 2
 COLUMNS = 136 * 5
-# COLUMNS = 3
+AMOUNT_OF_ANT = 5000
 exit_floor = []
-exits = [[]]  # The position of exit
-stairs = []
-louvre_map = numpy.empty([FLOORS, ROWS, COLUMNS], dtype=Item)
 connect_floor = []
+exits = []  # The position of exit
+stairs = []  # The position of stair
+louvre_map = numpy.empty([FLOORS, ROWS, COLUMNS], dtype=Item)
+humans = numpy.empty(AMOUNT_OF_ANT, dtype=Human)
 
+
+def automaton():
+    locate_humans()
+
+
+def locate_humans():
+    for i in range(AMOUNT_OF_ANT):
+        human = Human()
+        humans[i] = human
+
+
+def get_available_position(seed):
+    random.seed(seed + datetime.datetime.now().second)
+    floor,x,y =random.randint(0,4),random.randint(0,ROWS),random.randint(0,COLUMNS)
 
 def read_data():
     excel = xlrd.open_workbook(r'./data2.xlsx')
@@ -41,12 +57,12 @@ def read_data():
                     louvre_map[f][i][j] = Stair(1)
                 else:
                     louvre_map[f][i][j] = Blank()
-    count_heuristic()
 
 
 def count_heuristic():
     count_exit_floor_stair()
     count_all_floor_stair()
+    count_all_floor_floor()
 
 
 def count_exit_floor_stair():
@@ -55,6 +71,7 @@ def count_exit_floor_stair():
             for (x_exit, y_exit) in exits[f]:
                 louvre_map[f][x_stair][y_stair].set_heuristic(
                     ((x_stair - x_exit) ** 2 + (y_stair - y_exit) ** 2) ** 0.5)
+            # exits[f].append((x_stair, y_stair))
             if louvre_map[f][x_stair][y_stair].toward == 0 and louvre_map[f - 1][x_stair][y_stair].heuristic > \
                     louvre_map[f][x_stair][y_stair].heuristic + 15:
                 louvre_map[f - 1][x_stair][y_stair].is_down_to_up(louvre_map[f][x_stair][y_stair].heuristic + 15)
@@ -86,6 +103,19 @@ def count_all_floor_stair():
                 exits[f + 1].append((x_stair, y_stair))
 
 
+def count_all_floor_floor():
+    for f in range(FLOORS):
+        for x in range(ROWS):
+            for y in range(COLUMNS):
+                if isinstance(louvre_map[f][x][y], Floor):
+                    for (x_exit, y_exit) in exits[f]:
+                        louvre_map[f][x][y].set_heuristic(
+                            ((x - x_exit) ** 2 + (y - y_exit) ** 2) ** 0.5 + louvre_map[f][x_exit][
+                                y_exit].heuristic)
+                else:
+                    continue
+
+
 def printGraph():
     for floor in louvre_map:
         for row in floor:
@@ -103,7 +133,14 @@ def printGraph():
 
 
 if __name__ == '__main__':
+    all_start_time = datetime.datetime.now()
+    start_time = datetime.datetime.now()
     for i in range(FLOORS):
         exits.append([])
         stairs.append([])
     read_data()
+    print('Load data finish use %d seconds' % (datetime.datetime.now() - start_time).seconds)
+    start_time = datetime.datetime.now()
+    count_heuristic()
+    print('Calculate finish use %d seconds' % (datetime.datetime.now() - start_time).seconds)
+    print('All finish use %d seconds' % (datetime.datetime.now() - all_start_time).seconds)

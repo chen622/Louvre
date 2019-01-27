@@ -7,3 +7,7 @@ class Floor(Item):
 
     def __init__(self):
         pass
+
+    def set_heuristic(self, heuristic):
+        if self.heuristic > heuristic:
+            self.heuristic = heuristic
