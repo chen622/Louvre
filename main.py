@@ -301,8 +301,6 @@ if __name__ == '__main__':
     read_data()
     print('Load data finish use %d seconds' % (datetime.datetime.now() - start_time).seconds)
     start_time = datetime.datetime.now()
-
-    print(Dijkstra_algorithm(graph, (2, 8, 113)))
     count_heuristic()
     print('Calculate finish use %d seconds' % (datetime.datetime.now() - start_time).seconds)
     automaton()
