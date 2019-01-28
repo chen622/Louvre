@@ -123,7 +123,6 @@ def Dijkstra_algorithm(graph, v):
     notBook = [] # has not visited
     #while len(book) < available_floor[f]:
     while True:
-        print(r, c)
         for neighbor in check_neighbor(f, r, c):
             if neighbor not in book and neighbor not in notBook:
                 notBook.append(neighbor)
