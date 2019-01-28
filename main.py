@@ -16,7 +16,7 @@ import random
 FLOORS = 5
 ROWS = 58 * 1
 COLUMNS = 136 * 1
-AMOUNT_OF_ANT = 100
+AMOUNT_OF_ANT = 200
 
 start_time = 0
 
@@ -83,7 +83,7 @@ def automaton():
                         if louvre_map[f][x_max][y_max].get_probability() < louvre_map[f][x_neighbor][
                             y_neighbor].get_probability():
                             x_max, y_max = x_neighbor, y_neighbor
-                    # print('max: %d, %d' % (x_max, y_max))
+                    print('max: %d, %d' % (x_max, y_max))
                     louvre_map[f][x_max][y_max].owner = human
                     louvre_map[f][x][y].owner = None
                     human.touch((f, x_max, y_max))
@@ -230,47 +230,63 @@ def count_exit_floor_stair(graph):
     for f in exit_floor:
         for (x_stair, y_stair) in stairs[f]:
             distance = Dijkstra_algorithm(graph, (f, x_stair, y_stair))
+            change = False
             for (x_exit, y_exit) in exits[f]:
-                louvre_map[f][x_stair][y_stair].set_heuristic(
-                    distance[transfer_to_and(x_exit, y_exit)] + louvre_map[f][x_exit][y_exit].heuristic)
+                if louvre_map[f][x_stair][y_stair].set_heuristic(
+                    distance[transfer_to_and(x_exit, y_exit)] + louvre_map[f][x_exit][y_exit].heuristic):
+                    change = True
             if louvre_map[f][x_stair][y_stair].toward == 0 and louvre_map[f - 1][x_stair][y_stair].heuristic > \
                     louvre_map[f][x_stair][y_stair].heuristic + 15:
                 louvre_map[f - 1][x_stair][y_stair].is_down_to_up(louvre_map[f][x_stair][y_stair].heuristic + 15)
-                louvre_map[f][x_stair][y_stair].is_up_to_down(louvre_map[f][x_stair][y_stair].heuristic)
+                louvre_map[f][x_stair][y_stair].is_down_to_up(louvre_map[f][x_stair][y_stair].heuristic)
                 if f - 1 not in connect_floor: connect_floor.append(f - 1)
                 exits[f - 1].append((x_stair, y_stair))
             elif louvre_map[f][x_stair][y_stair].toward == 1 and louvre_map[f + 1][x_stair][y_stair].heuristic > \
                     louvre_map[f][x_stair][y_stair].heuristic + 15:
                 louvre_map[f + 1][x_stair][y_stair].is_up_to_down(louvre_map[f][x_stair][y_stair].heuristic + 15)
-                louvre_map[f][x_stair][y_stair].is_down_to_up(louvre_map[f][x_stair][y_stair].heuristic)
+                louvre_map[f][x_stair][y_stair].is_up_to_down(louvre_map[f][x_stair][y_stair].heuristic)
                 if f + 1 not in connect_floor: connect_floor.append(f + 1)
                 exits[f + 1].append((x_stair, y_stair))
-
+            else:
+                if change:
+                    if louvre_map[f][x_stair][y_stair].toward == 0:
+                        louvre_map[f-1][x_stair][y_stair].h_toward = -1
+                    elif louvre_map[f][x_stair][y_stair].toward == 0:
+                        louvre_map[f+1][x_stair][y_stair].h_toward = -1
+                    louvre_map[f][x_stair][y_stair].h_toward = -1
 
 # Calculate the heuristic of stair in floor which doesn't have exit
 def count_all_floor_stair(graph):
     for f in connect_floor:
         for (x_stair, y_stair) in stairs[f]:
             distance = Dijkstra_algorithm(graph, (f, x_stair, y_stair))
+            change = False
             for (x_exit, y_exit) in exits[f]:
-                louvre_map[f][x_stair][y_stair].set_heuristic(
-                    distance[transfer_to_and(x_exit, y_exit)] + louvre_map[f][x_exit][y_exit].heuristic)
+                if louvre_map[f][x_stair][y_stair].set_heuristic(
+                    distance[transfer_to_and(x_exit, y_exit)] + louvre_map[f][x_exit][y_exit].heuristic):
+                    change = True
                 # louvre_map[f][x_stair][y_stair].set_heuristic(
                 #     (((x_stair - x_exit) ** 2 + (y_stair - y_exit) ** 2) ** 0.5) + louvre_map[f][x_exit][
                 #         y_exit].heuristic)
             if louvre_map[f][x_stair][y_stair].toward == 0 and louvre_map[f - 1][x_stair][y_stair].heuristic > \
                     louvre_map[f][x_stair][y_stair].heuristic + 15:
                 louvre_map[f - 1][x_stair][y_stair].is_down_to_up(louvre_map[f][x_stair][y_stair].heuristic + 15)
-                louvre_map[f][x_stair][y_stair].is_up_to_down(louvre_map[f][x_stair][y_stair].heuristic)
+                louvre_map[f][x_stair][y_stair].is_down_to_up(louvre_map[f][x_stair][y_stair].heuristic)
                 if f - 1 not in connect_floor: connect_floor.append(f - 1)
                 exits[f - 1].append((x_stair, y_stair))
             elif louvre_map[f][x_stair][y_stair].toward == 1 and louvre_map[f + 1][x_stair][y_stair].heuristic > \
                     louvre_map[f][x_stair][y_stair].heuristic + 15:
                 louvre_map[f + 1][x_stair][y_stair].is_up_to_down(louvre_map[f][x_stair][y_stair].heuristic + 15)
-                louvre_map[f][x_stair][y_stair].is_down_to_up(louvre_map[f][x_stair][y_stair].heuristic)
+                louvre_map[f][x_stair][y_stair].is_up_to_down(louvre_map[f][x_stair][y_stair].heuristic)
                 if f + 1 not in connect_floor: connect_floor.append(f + 1)
                 exits[f + 1].append((x_stair, y_stair))
-
+            else:
+                if change:
+                    if louvre_map[f][x_stair][y_stair].toward == 0:
+                        louvre_map[f-1][x_stair][y_stair].h_toward = -1
+                    elif louvre_map[f][x_stair][y_stair].toward == 0:
+                        louvre_map[f+1][x_stair][y_stair].h_toward = -1
+                    louvre_map[f][x_stair][y_stair].h_toward = -1
 
 # Calculate the heuristic of all block
 def count_all_floor_floor(graph):

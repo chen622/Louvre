@@ -23,7 +23,8 @@ class Stair(Item):
     def set_heuristic(self, heuristic):
         if self.heuristic > heuristic:
             self.heuristic = heuristic
-
+            return True
+        return False
     def touch(self):
         self.current -= 1
         if self.current < 0:
