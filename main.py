@@ -16,10 +16,11 @@ import random
 FLOORS = 5
 ROWS = 58 * 1
 COLUMNS = 136 * 1
-AMOUNT_OF_ANT = 2
+AMOUNT_OF_ANT = 100
 
 start_time = 0
 
+exit_amount = 0
 exit_floor = []
 connect_floor = []
 exits = []  # The position of exit. e.g. [0:[(1,2)],1:[],2:[],3:[],4:[]]
@@ -32,20 +33,20 @@ humans = numpy.empty(AMOUNT_OF_ANT, dtype=Human)  # e.g. [human1,human2]
 
 # Use to simulate automaton.
 def automaton():
-    global start_time
+    global start_time, exit_amount
     start_time = datetime.datetime.now()
     locate_humans()
     print('Locate finish use %d microseconds' % (datetime.datetime.now() - start_time).microseconds)
     start_time = datetime.datetime.now()
     time = 0
     while not is_safe():
-        print("iterate %d" % time)
+        print("iterate %d, exits %d/%d" % (time, exit_amount, AMOUNT_OF_ANT))
         time += 1
         for human in humans:  # traversal all the visitor
             if human.is_safe:
                 continue
             f, x, y = human.path[-1]
-            print('position: %d, %d, %d' % (f, x, y))
+            print('position: %d, %d, %d H=%f' % (f + 1, x + 1, y + 1, louvre_map[f][x][y].heuristic))
             if isinstance(louvre_map[f][x][y], Floor):  # visitor is on a Floor block
                 neighbors = check_neighbor(f, x, y)
                 if len(neighbors) == 0:
@@ -55,7 +56,7 @@ def automaton():
                     if louvre_map[f][x_max][y_max].get_probability() < louvre_map[f][x_neighbor][
                         y_neighbor].get_probability():
                         x_max, y_max = x_neighbor, y_neighbor
-                print('max: %d, %d' % (x_max, y_max))
+                print('max: %d, %d' % (x_max + 1, y_max + 1))
                 louvre_map[f][x_max][y_max].owner = human
                 human.path.append((f, x_max, y_max))
                 louvre_map[f][x][y].owner = None
@@ -91,11 +92,12 @@ def automaton():
                 exit_human = human
                 exit_human.is_safe = True
                 louvre_map[f][x][y].owner = None
+                exit_amount += 1
     print('Evacuation finish use %d seconds' % (datetime.datetime.now() - start_time).seconds)
     start_time = datetime.datetime.now()
 
 
-#迪杰斯特拉算法
+# 迪杰斯特拉算法
 def initialGraph():
     graph = numpy.full([FLOORS, ROWS * COLUMNS, ROWS * COLUMNS], 9999, dtype=float)
     for f in range(0, FLOORS - 1):
@@ -106,9 +108,10 @@ def initialGraph():
                         if r == neighbor[0] or c == neighbor[1]:
                             graph[f][transfer_to_and(r, c)][transfer_to_and(neighbor[0], neighbor[1])] = 1
                         else:
-                            graph[f][transfer_to_and(r, c)][transfer_to_and(neighbor[0], neighbor[1])] = 1.4
+                            graph[f][transfer_to_and(r, c)][transfer_to_and(neighbor[0], neighbor[1])] = 2
             graph[f][r][r] = 0
     return graph
+
 
 def Dijkstra_algorithm(graph, v):
     f = v[0]
@@ -118,16 +121,19 @@ def Dijkstra_algorithm(graph, v):
     for i in range(0, ROWS * COLUMNS):
         distance[i] = graph[f][transfer_to_and(r, c)][i]
 
-    book = set() # has visited
+    book = set()  # has visited
     book.add((r, c))
-    notBook = [] # has not visited
-    #while len(book) < available_floor[f]:
+    notBook = []  # has not visited
+    # while len(book) < available_floor[f]:
     while True:
         for neighbor in check_neighbor(f, r, c):
             if neighbor not in book and neighbor not in notBook:
                 notBook.append(neighbor)
-                if distance[transfer_to_and(neighbor[0], neighbor[1])] > distance[transfer_to_and(r, c)] + graph[f][transfer_to_and(r, c)][transfer_to_and(neighbor[0], neighbor[1])]:
-                    distance[transfer_to_and(neighbor[0], neighbor[1])] = distance[transfer_to_and(r, c)] + graph[f][transfer_to_and(r, c)][transfer_to_and(neighbor[0], neighbor[1])]
+                if distance[transfer_to_and(neighbor[0], neighbor[1])] > distance[transfer_to_and(r, c)] + \
+                        graph[f][transfer_to_and(r, c)][transfer_to_and(neighbor[0], neighbor[1])]:
+                    distance[transfer_to_and(neighbor[0], neighbor[1])] = distance[transfer_to_and(r, c)] + \
+                                                                          graph[f][transfer_to_and(r, c)][
+                                                                              transfer_to_and(neighbor[0], neighbor[1])]
 
         if len(notBook) == 0:
             break
@@ -144,6 +150,7 @@ def Dijkstra_algorithm(graph, v):
 def transfer_to_and(row, column):
     return row * COLUMNS + column
 
+
 # Determine is all visitor safe.
 def is_safe():
     for human in humans:
@@ -156,7 +163,8 @@ def check_neighbor(f, x, y):
     neighbors = []
     for (x2, y2) in [(x + 1, y), (x, y + 1), (x - 1, y), (x, y - 1), (x + 1, y + 1), (x + 1, y - 1), (x - 1, y + 1),
                      (x - 1, y - 1), ]:
-        if x2 >= 0 and x2 < ROWS and y2 >= 0 and y2 < COLUMNS and not isinstance(louvre_map[f][x2][y2], Blank) and louvre_map[f][x2][y2].owner is None:
+        if x2 >= 0 and x2 < ROWS and y2 >= 0 and y2 < COLUMNS and not isinstance(louvre_map[f][x2][y2], Blank) and \
+                louvre_map[f][x2][y2].owner is None:
             neighbors.append((x2, y2))
     return neighbors
 
@@ -216,23 +224,28 @@ def count_heuristic():
     count_all_floor_stair(graph)
     count_all_floor_floor(graph)
 
+
 # Calculate the heuristic of stair in floor which has exit
 def count_exit_floor_stair(graph):
     for f in exit_floor:
         for (x_stair, y_stair) in stairs[f]:
             distance = Dijkstra_algorithm(graph, (f, x_stair, y_stair))
             for (x_exit, y_exit) in exits[f]:
-                louvre_map[f][x_stair][y_stair].set_heuristic(distance[transfer_to_and(x_exit, y_exit)])
+                louvre_map[f][x_stair][y_stair].set_heuristic(
+                    distance[transfer_to_and(x_exit, y_exit)] + louvre_map[f][x_exit][y_exit].heuristic)
             if louvre_map[f][x_stair][y_stair].toward == 0 and louvre_map[f - 1][x_stair][y_stair].heuristic > \
                     louvre_map[f][x_stair][y_stair].heuristic + 15:
                 louvre_map[f - 1][x_stair][y_stair].is_down_to_up(louvre_map[f][x_stair][y_stair].heuristic + 15)
+                louvre_map[f][x_stair][y_stair].is_up_to_down(louvre_map[f][x_stair][y_stair].heuristic)
                 if f - 1 not in connect_floor: connect_floor.append(f - 1)
                 exits[f - 1].append((x_stair, y_stair))
             elif louvre_map[f][x_stair][y_stair].toward == 1 and louvre_map[f + 1][x_stair][y_stair].heuristic > \
                     louvre_map[f][x_stair][y_stair].heuristic + 15:
                 louvre_map[f + 1][x_stair][y_stair].is_up_to_down(louvre_map[f][x_stair][y_stair].heuristic + 15)
+                louvre_map[f][x_stair][y_stair].is_down_to_up(louvre_map[f][x_stair][y_stair].heuristic)
                 if f + 1 not in connect_floor: connect_floor.append(f + 1)
                 exits[f + 1].append((x_stair, y_stair))
+
 
 # Calculate the heuristic of stair in floor which doesn't have exit
 def count_all_floor_stair(graph):
@@ -240,18 +253,21 @@ def count_all_floor_stair(graph):
         for (x_stair, y_stair) in stairs[f]:
             distance = Dijkstra_algorithm(graph, (f, x_stair, y_stair))
             for (x_exit, y_exit) in exits[f]:
-                louvre_map[f][x_stair][y_stair].set_heuristic(distance[transfer_to_and(x_exit, y_exit)])
+                louvre_map[f][x_stair][y_stair].set_heuristic(
+                    distance[transfer_to_and(x_exit, y_exit)] + louvre_map[f][x_exit][y_exit].heuristic)
                 # louvre_map[f][x_stair][y_stair].set_heuristic(
                 #     (((x_stair - x_exit) ** 2 + (y_stair - y_exit) ** 2) ** 0.5) + louvre_map[f][x_exit][
                 #         y_exit].heuristic)
             if louvre_map[f][x_stair][y_stair].toward == 0 and louvre_map[f - 1][x_stair][y_stair].heuristic > \
                     louvre_map[f][x_stair][y_stair].heuristic + 15:
                 louvre_map[f - 1][x_stair][y_stair].is_down_to_up(louvre_map[f][x_stair][y_stair].heuristic + 15)
+                louvre_map[f][x_stair][y_stair].is_up_to_down(louvre_map[f][x_stair][y_stair].heuristic)
                 if f - 1 not in connect_floor: connect_floor.append(f - 1)
                 exits[f - 1].append((x_stair, y_stair))
             elif louvre_map[f][x_stair][y_stair].toward == 1 and louvre_map[f + 1][x_stair][y_stair].heuristic > \
                     louvre_map[f][x_stair][y_stair].heuristic + 15:
                 louvre_map[f + 1][x_stair][y_stair].is_up_to_down(louvre_map[f][x_stair][y_stair].heuristic + 15)
+                louvre_map[f][x_stair][y_stair].is_down_to_up(louvre_map[f][x_stair][y_stair].heuristic)
                 if f + 1 not in connect_floor: connect_floor.append(f + 1)
                 exits[f + 1].append((x_stair, y_stair))
 
@@ -262,9 +278,50 @@ def count_all_floor_floor(graph):
         for x in range(ROWS):
             for y in range(COLUMNS):
                 if isinstance(louvre_map[f][x][y], Floor):
+                    # check first top-down second left-right
+                    distance = []
+                    for (x_exit, y_exit) in exits[f]:
+                        should_dijkstra = False
+                        if x != x_exit:
+                            for x2 in range(x, x_exit, int((x_exit - x) / abs(x_exit - x))):
+                                if isinstance(louvre_map[f][x2][y], Blank):
+                                    should_dijkstra = True
+                                    break
+                            if should_dijkstra: continue
+                        if y != y_exit:
+                            for y2 in range(y, y_exit, int((y_exit - y) / abs(y_exit - y))):
+                                if isinstance(louvre_map[f][x2][y2], Blank):
+                                    should_dijkstra = True
+                                    break
+                            if should_dijkstra: continue
+                        distance.append(abs(x - x_exit) + abs(y - y_exit) + louvre_map[f][x_exit][y_exit].heuristic)
+                    if len(distance) != 0:
+                        louvre_map[f][x][y].set_heuristic(min(distance))
+                        continue
+                    # check first left-right second top-down
+                    distance = []
+                    for (x_exit, y_exit) in exits[f]:
+                        should_dijkstra = False
+                        if y != y_exit:
+                            for y2 in range(y, y_exit, int((y_exit - y) / abs(y_exit - y))):
+                                if isinstance(louvre_map[f][x][y2], Blank):
+                                    should_dijkstra = True
+                                    break
+                            if should_dijkstra: continue
+                        if x != x_exit:
+                            for x2 in range(x, x_exit, int((x_exit - x) / abs(x_exit - x))):
+                                if isinstance(louvre_map[f][x2][y2], Blank):
+                                    should_dijkstra = True
+                                    break
+                            if should_dijkstra: continue
+                        distance.append(abs(x - x_exit) + abs(y - y_exit) + louvre_map[f][x_exit][y_exit].heuristic)
+                    if len(distance) != 0:
+                        louvre_map[f][x][y].set_heuristic(min(distance))
+                        continue
                     distance = Dijkstra_algorithm(graph, (f, x, y))
                     for (x_exit, y_exit) in exits[f]:
-                        louvre_map[f][x][y].set_heuristic(distance[transfer_to_and(x_exit, y_exit)])
+                        louvre_map[f][x][y].set_heuristic(
+                            distance[transfer_to_and(x_exit, y_exit)] + louvre_map[f][x_exit][y_exit].heuristic)
                         # (((x - x_exit) ** 2 + (y - y_exit) ** 2) ** 0.5) + louvre_map[f][x_exit][
                         #     y_exit].heuristic)
                 else:
@@ -294,7 +351,7 @@ if __name__ == '__main__':
         exits.append([])
         stairs.append([])
     read_data()
-    print('Load data finish use %d seconds' % (datetime.datetime.now() - start_time).seconds)
+    print('Load data finish use %d microseconds' % (datetime.datetime.now() - start_time).microseconds)
     start_time = datetime.datetime.now()
     count_heuristic()
     print('Calculate finish use %d seconds' % (datetime.datetime.now() - start_time).seconds)
