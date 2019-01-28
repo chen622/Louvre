@@ -138,6 +138,8 @@ def Dijkstra_algorithm(graph, v):
             book.add(item)
             notBook.remove(item)
 
+    print("x")
+
     return distance
 
 
@@ -213,15 +215,16 @@ def read_data():
 def count_heuristic():
     graph = initialGraph()
     count_exit_floor_stair(graph)
-    count_all_floor_stair(graph)
-    count_all_floor_floor(graph)
+    """count_all_floor_stair(graph)
+    count_all_floor_floor(graph)"""
 
 # Calculate the heuristic of stair in floor which has exit
 def count_exit_floor_stair(graph):
     for f in exit_floor:
         for (x_stair, y_stair) in stairs[f]:
+            distance = Dijkstra_algorithm(graph, (f, x_stair, y_stair))
             for (x_exit, y_exit) in exits[f]:
-                louvre_map[f][x_stair][y_stair].set_heuristic(Dijkstra_algorithm(graph, (f, x_stair, y_stair))[transfer_to_and(x_exit, y_exit)])
+                louvre_map[f][x_stair][y_stair].set_heuristic(distance[transfer_to_and(x_exit, y_exit)])
             if louvre_map[f][x_stair][y_stair].toward == 0 and louvre_map[f - 1][x_stair][y_stair].heuristic > \
                     louvre_map[f][x_stair][y_stair].heuristic + 15:
                 louvre_map[f - 1][x_stair][y_stair].is_down_to_up(louvre_map[f][x_stair][y_stair].heuristic + 15)
@@ -237,12 +240,9 @@ def count_exit_floor_stair(graph):
 def count_all_floor_stair(graph):
     for f in connect_floor:
         for (x_stair, y_stair) in stairs[f]:
+            distance = Dijkstra_algorithm(graph, (f, x_stair, y_stair))
             for (x_exit, y_exit) in exits[f]:
-                louvre_map[f][x_stair][y_stair].set_heuristic(
-                    Dijkstra_algorithm(graph, (f, x_stair, y_stair))[transfer_to_and(x_exit, y_exit)])
-                louvre_map[f][x_stair][y_stair].set_heuristic(
-                    abs(x_stair - x_exit) + abs(y_stair - y_exit) + louvre_map[f][x_exit][
-                        y_exit].heuristic)
+                louvre_map[f][x_stair][y_stair].set_heuristic(distance[transfer_to_and(x_exit, y_exit)])
                 # louvre_map[f][x_stair][y_stair].set_heuristic(
                 #     (((x_stair - x_exit) ** 2 + (y_stair - y_exit) ** 2) ** 0.5) + louvre_map[f][x_exit][
                 #         y_exit].heuristic)
@@ -264,11 +264,9 @@ def count_all_floor_floor(graph):
         for x in range(ROWS):
             for y in range(COLUMNS):
                 if isinstance(louvre_map[f][x][y], Floor):
+                    distance = Dijkstra_algorithm(graph, (f, x, y))
                     for (x_exit, y_exit) in exits[f]:
-                        louvre_map[f][x][y].set_heuristic(Dijkstra_algorithm(graph, (f, x, y))[transfer_to_and(x_exit, y_exit)])
-                        louvre_map[f][x][y].set_heuristic(
-                            abs(x - x_exit) + abs(y - y_exit) + louvre_map[f][x_exit][
-                                y_exit].heuristic)
+                        louvre_map[f][x][y].set_heuristic(distance[transfer_to_and(x_exit, y_exit)])
                         # (((x - x_exit) ** 2 + (y - y_exit) ** 2) ** 0.5) + louvre_map[f][x_exit][
                         #     y_exit].heuristic)
                 else:
