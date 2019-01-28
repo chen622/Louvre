@@ -138,8 +138,6 @@ def Dijkstra_algorithm(graph, v):
             book.add(item)
             notBook.remove(item)
 
-    print("x")
-
     return distance
 
 
@@ -215,8 +213,8 @@ def read_data():
 def count_heuristic():
     graph = initialGraph()
     count_exit_floor_stair(graph)
-    """count_all_floor_stair(graph)
-    count_all_floor_floor(graph)"""
+    count_all_floor_stair(graph)
+    count_all_floor_floor(graph)
 
 # Calculate the heuristic of stair in floor which has exit
 def count_exit_floor_stair(graph):
